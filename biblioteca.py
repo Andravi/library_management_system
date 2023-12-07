@@ -1,369 +1,185 @@
 """Sistema de Biblioteca"""
-# representação em terminal por
-#    https://stackoverflow.com/questions/34012886/print-binary-tree-level-by-level-in-python
+from datetime import datetime
+from bibliteca_classes import ArvoreLivros, ArvoreUsuarios, Livro
+
+# A principio deixarei as propriedades publicas para poder visualizar melhor as informações
+class Biblioteca:
+    """ Sistema de biblioteca """
+    usuarios: ArvoreUsuarios = ArvoreUsuarios()
+    livros: ArvoreLivros = ArvoreLivros()
+    emprestimos: dict = {}
+    devolucoes: dict = {}
 
 
-
-class Node:
-    """Nó genérico"""
-    def __init__(self, data = None, pai = None) -> None:
-        self.data = data
-        self.esquerda:Node = None
-        self.direita:Node = None
-        self.__pai = pai
-        self.bf = 0
-
-    def __le__(self, other):
-        if isinstance(other, Node):
-            return self.data <= other.data
-
-    def display_aux(self):
-        """Returns list of strings, width, height, and horizontal coordinate of the root."""
-        # No child.
-        if self.direita is None and self.esquerda is None:
-            line = str(self.data)
-            width = len(line)
-            height = 1
-            middle = width // 2
-            return [line], width, height, middle
-
-        # Only left child.
-        if self.direita is None:
-            lines, n, p, x = self.esquerda.display_aux()
-            s = str(self.data)
-            u = len(s)
-            first_line = (x + 1) * ' ' + (n - x - 1) * '_' + s
-            second_line = x * ' ' + '/' + (n - x - 1 + u) * ' '
-            shifted_lines = [line + u * ' ' for line in lines]
-            return [first_line, second_line] + shifted_lines, n + u, p + 2, n + u // 2
-
-        # Only right child.
-        if self.esquerda is None:
-            lines, n, p, x = self.direita.display_aux()
-            s = str(self.data)
-            u = len(s)
-            first_line = s + x * '_' + (n - x) * ' '
-            second_line = (u + x) * ' ' + '\\' + (n - x - 1) * ' '
-            shifted_lines = [u * ' ' + line for line in lines]
-            return [first_line, second_line] + shifted_lines, n + u, p + 2, u // 2
-
-        # Two children.
-        left, n, p, x = self.esquerda.display_aux()
-        right, m, q, y = self.direita.display_aux()
-        s = str(self.data)
-        u = len(s)
-        first_line = (x + 1) * ' ' + (n - x - 1) * '_' + s + y * '_' + (m - y) * ' '
-        second_line = x * ' ' + '/' + (n - x - 1 + u + y) * ' ' + '\\' + (m - y - 1) * ' '
-        if p < q:
-            left += [n * ' '] * (q - p)
-        elif q < p:
-            right += [m * ' '] * (p - q)
-        zipped_lines = zip(left, right)
-        lines = [first_line, second_line] + [a + u * ' ' + b for a, b in zipped_lines]
-        return lines, n + m + u, max(p, q) + 2, n + u // 2
+    def inserir_usuario(self, nome:str, cpf:int, email:str):
+        """Inserir usuarios para poderem usar a biblioteca"""
+        self.usuarios.inserir_usuario(nome, cpf, email)
 
 
-    def set_parent(self, parent) -> None:
-        """definir Pai do nó"""
-        self.__pai = parent
+    def inserir_livro(self, titulo, autor, ano_publicacao, categoria):
+        """Inserir usuarios para poderem usar a biblioteca"""
+        self.livros.inserir_livro(titulo, autor, ano_publicacao, categoria)
 
 
-    def get_parent(self) -> object:
-        """Returna o Pai do nó"""
-        return self.__pai
+    def buscar_usuario(self, cpf):
+        """procura o usuario com o cpf informado"""
+        return self.usuarios.encontrar(cpf)[1]
 
 
-    def has_left_child(self):
-        """Retorna o nó esquerdo caso exista"""
-        return self.esquerda is not None
+    def buscar_livro_por_titulo(self, titulo):
+        """ Retorna o livro atraves do título, caso seja 100% igual"""
+        return self.livros.encontrar_livro_por_titulo(titulo)
 
 
-    def has_right_child(self):
-        """Retorna o nó direito caso exista"""
-        return self.direita is not None
+    def buscar_livro_por_autor(self, nome) -> list:
+        """Buscar lirvos feitos por um determinado autor"""
+        return self.livros.encontrar_livro_por_autor(nome)
 
 
-    def __str__(self) -> str:
-        return self.data.__str__()
+    def emprestar(self, titulo, cpf):
+        """ Realiza um Empréstimo a um usuário já cadastrado"""
+        user_cadastrado, user = self.usuarios.encontrar(cpf)
+        livro_cadastrado, livro = self.livros.encontrar(titulo)
 
+        if livro_cadastrado:
+            if user_cadastrado:
+                if livro.disponibilidade:
+                    if not user.livro_em_pose:
+                        data = datetime.now()
+                        livro.disponibilidade = False
 
-
-class ArvoreBinaria:
-    """Arvore Binária"""
-    def __init__(self):
-        self.raiz = None
-
-    def __inserir_filho(self, root:Node, node):
-        if node <= root:
-            if not root.esquerda:
-                root.esquerda = node
-                root.esquerda.set_parent(root)
+                        user.livro_em_pose = livro
+                        self.emprestimos[f"{data}_{user.cpf}"] = {
+                            "livro": livro,
+                            "usuario": user,
+                            "data": data
+                        }
+                        # * Imprime um registro do empréstimo na tela.
+                        print(f"O {livro.titulo} foi emprestado para {user.nome}\n")
+                    else:
+                        print(f"O {user.nome} já esta com o livro ({user.livro_em_pose}) emprestado.\n")
+                else:
+                    # * Informa que o livro solicitado não está disponível.
+                    print(f"O {livro.titulo} se encontra indisponível\n")
             else:
-                self.__inserir_filho(root.esquerda, node)  # sub-árvore esquerda
+                # * Imprime que o usuário solicitante não existe.
+                print("O usuário solicitante do emprestimo não está cadastrado\n")
+                print("Por favor, realize o cadastro e tente novamente.\n")
         else:
-            if not root.direita:  # não existe nó a direta (caso base)
-                root.direita = node
-                root.direita.set_parent(root)
+            # * Imprime que o livro solicitado não existe.
+            print("O livro solicitado não está cadastrado\n")
+            print("Por favor, registre a obra e tente novamente.\n")
+        # if titulo.disponivel -> emprestar pro usuario com o Cpf
+
+
+    def devolver(self, titulo, cpf):
+        """Devolver um lívro"""
+        livro_cadastrado, livro = self.livros.encontrar(titulo)
+        user_cadastrado, usuario = self.usuarios.encontrar(cpf)
+
+        if livro_cadastrado:
+            if user_cadastrado:
+                if not livro.disponibilidade and livro == usuario.livro_em_pose:
+                    livro.disponibilidade = True
+                    usuario.livro_em_pose = None
+                    data = datetime.now()
+                    self.devolucoes[f"{data}_{usuario.cpf}"] = {
+                            "livro": livro,
+                            "usuario": usuario,
+                            "data": data
+                        }
+
+                    print(f"O {livro.titulo} foi devolvido por {usuario.nome}\n")
+                else:
+                    print(f"O {livro.titulo} não se encontra em posse do usuário {usuario.nome}\n")
             else:
-                self.__inserir_filho(root.direita, node)  # sub-árvore direta
-
-        # Sistema de balanceamento
-        root.bf = self.get_bf(root)
-
-        if root.bf > 1:
-            if root.esquerda.bf == 1:
-                self.girar_direita(root)
-            elif root.esquerda.bf == -1:
-                self.girar_esquerda_direita(root)
-
-        elif root.bf < -1:
-            if root.direita.bf == -1:
-                self.girar_esquerda(root)
-            elif root.direita.bf == 1:
-                self.girar_direita_esquerda(root)
-
-        return node
-
-
-    def inserir(self, node:Node):
-        """Inseri num determinado lugar dependendo da data(Idenficador)"""
-        if self.raiz is None:
-            self.raiz = node
+                # * Imprime que o usuário solicitante não existe.
+                print("O usuário solicitante do emprestimo não está cadastrado\n")
+                print("Por favor, realize o cadastro e tente novamente.\n")
         else:
-            self.__inserir_filho(self.raiz, node)
-
-    def get_bf(self, node: Node):
-        """Retorna o fator de balanço de um nó na arvore"""
-        return (self.get_height(node.esquerda) - self.get_height(node.direita))
-
-
-    def get_height(self, node: Node):
-        """Retorna a altura de um derterminado node dentro da arvore"""
-        if not node:
-            return -1
-        return 1 + max(self.get_height(node.esquerda), self.get_height(node.direita))
-
-
-    def encontrar(self, identificador) -> (bool, Node | None):
-        """Encontra um determinador Nó com base no seu identificador"""
-        no = self.raiz
-        while no is not None:
-            if identificador == no.data:
-                return (True, no)
-            if identificador < no.data:
-                no = no.esquerda
-            else:
-                no = no.direita
-        return (False, None)
-
-    def __str__(self) :
-        self.__display()
-        return ""
-
-
-    def minimum(self, root):
-        """Retorna o o menor valor de uma arvore balanceada"""
-        result = root
-        while result.esquerda:
-            result = result.esquerda
-        return result
-
-
-    def successor(self, node:Node):
-        """Retorna o proximo nó menor que o atual"""
-        belongs, n = self.encontrar(node.data)
-        if belongs:
-            if n.direita:
-                return self.minimum(n.direita)
-            else:
-                return n
-        else:
-            return None
-
-
-    def delete(self, value): # Issue, as vezes retorna o próximo numero
-        """Deletar um nó da arvore"""
-        belongs, z = self.encontrar(value)
-        if belongs:
-            if not z.has_left_child() or not z.has_right_child():
-                y: Node = z
-            else:
-                y = self.successor(z)
-
-
-            y_parent: Node | None = y.get_parent()
-
-            if y.esquerda:
-                x = y.esquerda
-            else:
-                x = y.direita
-
-            if x:
-                x.set_parent(y_parent)
-
-            if not y_parent:
-                self.raiz = x
-            elif y == y_parent.esquerda:
-                y_parent.esquerda = x
-            else:
-                y_parent.direita = x
-
-            if y != z: # não entendi
-                z.data = y.data
-
-            y_parent.bf = self.get_bf(y_parent)
-
-            if y_parent.bf > 1:
-                if y_parent.esquerda.bf == 1:
-                    self.girar_direita(y_parent)
-                elif y_parent.esquerda.bf == -1:
-                    self.girar_esquerda_direita(y_parent)
-
-            elif y_parent.bf < -1:
-                if y_parent.direita.bf == -1:
-                    self.girar_esquerda(y_parent)
-                elif y_parent.direita.bf == 1:
-                    self.girar_direita_esquerda(y_parent)
-
-            return y
-
-
-        return None
-
-
-    def __display(self):
-        lines, *_ = self.raiz.display_aux()
-        for line in lines:
-            print(line)
-
-
-    # reprecentaçãográfica da Arvore
-    def _ler_in_order(self, node) -> str:
-        representation = ""
-
-        self.__ler_a_esquerda(node)
-        print(node)
-        self.__ler_a_direita(node)
-
-        return representation
-
-
-    # -2
-    def girar_direita(self, node: Node):
-        """Realiza o movimento de girar uma subarvore para direita"""
-        y:Node = node.esquerda
-        node_root: Node = node.get_parent()
-        if node_root:
-            if node_root.direita == node:
-                node_root.direita = y
-            else:
-                node_root.esquerda = y
-        else:
-            self.raiz = y
-
-        y.set_parent(node_root)
-        node.set_parent(y)
-
-        node.esquerda = y.direita
-        if y.direita is not None:
-            node.esquerda.set_parent(node)
-        y.direita = node
-
-
-        node.bf = self.get_bf(node)
-        y.bf = self.get_bf(y)
-
-        return y
-
-
-    # +2
-    def girar_esquerda(self, node: Node):
-        """Realiza o movimento de girar uma subarvore para esquerda"""
-        y:Node = node.direita
-        node_root: Node = node.get_parent()
-        if node_root:
-            if node_root.esquerda == node:
-                node_root.esquerda = y
-            else:
-                node_root.direita = y
-        else:
-            self.raiz = y
-
-        y.set_parent(node_root)
-        node.set_parent(y)
-
-        node.direita = y.esquerda
-        if y.esquerda is not None:
-            node.direita.set_parent(node)
-        y.esquerda = node
-
-        node.bf = self.get_bf(node)
-        y.bf = self.get_bf(y)
-        return y
-
-
-    def girar_direita_esquerda(self, node:Node):
-        """Realiza o movimento para o -2 1 0"""
-
-        self.girar_direita(node.direita)
-        self.girar_esquerda(node)
-
-
-    def girar_esquerda_direita(self, node:Node):
-        """Realiza o movimento para o -2 -11 0"""
-        self.girar_esquerda(node.esquerda)
-        self.girar_direita(node)
-
-
-    def __ler_a_esquerda(self, node:Node):
-        if not node.esquerda:
-            return
-        else:
-            self._ler_in_order(node.esquerda)
-
-
-    def __ler_a_direita(self, node):
-        if not node.direita:
-            return
-        else:
-            self._ler_in_order(node.direita)
-
-
-
-t = ArvoreBinaria()
-
-
-
-
-def test():
-    """Just a testo to not lose insanity more"""
-    t.inserir(Node(15))
-    t.inserir(Node(5))
-    t.inserir(Node(3))
-
-    t.inserir(Node(16))
-    t.inserir(Node(12))
-    t.inserir(Node(10))
-    t.delete(16)
-    # t.delete(12)
-
-
-
-    # t.inserir(Node(6)) # parece que quando esse ta aqui não faz nada
-    # t.inserir(Node(7))
-
-    # t.inserir(Node(13))
-    # t.inserir(Node(20)) # mas se for esse ele faz o balanceamento certo
-
-# t.inserir(Node(23))
-
-# t.inserir(Node(65))
-# t.inserir(Node(14))
-
-for i in range(0, 63):
-    t.inserir(Node(i))
-
-# test()
-print("===================")
-print(t)
-print(t.get_height(t.encontrar(10)[1]))
+            # * Imprime que o livro solicitado não existe.
+            print("O livro solicitado não está cadastrado\n")
+            print("Por favor, registre a obra e tente novamente.\n")
+
+
+    def mostrar_relatorio_emprestimo(self):
+        """Mostrar historico de emprestimos feitos"""
+        print("################ Relatório de Empréstimos ##################")
+        for info in self.emprestimos.values():
+            print(f'O livro {info["livro"].titulo}, foi emprestado para {info["usuario"].nome} na data {(info["data"])}')
+        print("\n")
+
+
+    def mostrar_relatorio_devolucoes(self):
+        """Mostrar historico de emprestimos feitos"""
+        print("################ Relatório de Devoluções ###################")
+        for info in self.devolucoes.values():
+            print(f'O livro {info["livro"].titulo}, foi devolvido por {info["usuario"].nome} em {(info["data"])}')
+        print("\n")
+
+
+    def mostrar_livros_emprestados(self):
+        """ mostrar_livros_emprestados """
+        livros: [Livro] = self.livros.get_elementos()
+
+
+        for l in livros:
+            if not l.disponibilidade:
+                usuario = self.usuarios.tem_emprestado(l.titulo)
+                print(f'{l.titulo} está emprestado para {usuario.nome}')
+
+
+
+
+if __name__ == "__main__":
+
+    bib: Biblioteca = Biblioteca()
+
+    bib.inserir_usuario("Carlos Douglas", 20202020, "carlinhos@gmail,com")
+    bib.inserir_usuario("joão", 200, "joze@outlook.com")
+    bib.inserir_usuario("Joze", 202, "joaoze@outlook.com")
+    bib.inserir_livro("O Senhor dos Anéis",
+                        "J.R.R. Tolkien",
+                        "1954",
+                        ["fantasia", "aventura"]
+                    )
+    bib.inserir_livro("Romeu e Julieta",
+                        "Sheskpare",
+                        "1870",
+                        ["romance", "mediaval"]
+                    )
+    bib.inserir_livro("O Senhor do Anéis",
+                        "J.R.R. Tolkien",
+                        "1954",
+                        ["fantasia", "aventura"]
+                    )
+
+
+    # Buscas
+    # print(bib.buscar_livro_por_titulo("Romeu e Julieta"))
+    # print(bib.buscar_livro_por_autor("J.R.R. Tolkien"))
+    # print(bib.buscar_usuario(200).email)
+    # print("===================")
+
+
+    # Emprestimos
+    bib.emprestar(titulo='Romeu e Julieta', cpf=200)
+    print("===================")
+    # bib.emprestar(titulo='Romeu e Julieta', cpf=201)
+    # print("===================")
+    # bib.emprestar(titulo='O Senhor do Anéis', cpf=200)
+    # print("===================")
+    bib.emprestar(titulo='O Senhor do Anéis', cpf=202)
+    print("===================")
+    bib.devolver(titulo='O Senhor do Anéis', cpf=202)
+
+    # Arvores
+    print("=================== Visualização da Arvore Livro")
+    print(bib.livros)
+
+    print("=================== Visualização da Arvore Usuários")
+    print(bib.usuarios)
+
+    bib.mostrar_relatorio_emprestimo()
+    bib.mostrar_relatorio_devolucoes()
+    bib.mostrar_livros_emprestados()
